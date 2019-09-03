@@ -45,7 +45,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
- extern bool UserButton;
+bool UserButton;
  extern int BtDelay;
  extern int LedOnDelay;
 /* USER CODE END PV */
@@ -187,12 +187,12 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+	if(BtDelay > 0)BtDelay--;
+	if(LedOnDelay > 0) LedOnDelay--;
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-  if(BtDelay > 0)BtDelay--;
-  if(LedOnDelay > 0) LedOnDelay--;
+
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -211,8 +211,8 @@ void EXTI0_IRQHandler(void)
   /* USER CODE BEGIN EXTI0_IRQn 0 */
 	if(BtDelay == 0)
 	{
-	  BtDelay = 200;
-	  UserButton = !UserButton;
+	  BtDelay = 20;
+	  UserButton = TRUE;
 	}
   /* USER CODE END EXTI0_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);

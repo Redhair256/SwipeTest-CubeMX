@@ -32,13 +32,13 @@
 #define FALSE 0
 #define TRUE !FALSE
 
-#define Button_Delay  2000
-#define LedON_Delay  12000000
+#define Button_Delay  20
+#define LedON_Delay  3000
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-bool UserButton;               /* Set by interrupt handler to indicate that user button is pressed */
+extern bool UserButton;               /* Set by interrupt handler to indicate that user button is pressed */
 int BtDelay = Button_Delay;
 int LedOnDelay = LedON_Delay;
 /* USER CODE END PD */
@@ -127,30 +127,33 @@ int main(void)
   MX_TS_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+  systickInit(1000);   			// systick frequency 1kHz
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_TIM_Base_Start(&htim4);
-  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+  HAL_TIM_Base_Start(&htim4);				//PWM generator start
+//  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_2);
 
-	  HAL_Delay(500);
 
 	  if(UserButton)
-	  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+	  {
+	     HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+	     LedOnDelay = LedON_Delay;
+	     UserButton = FALSE;
+	  }
+	  else HAL_Delay(500);
+	  if(LedOnDelay == 0)
+	  {
 
-/*	  LedOnDelay = LedON_Delay;
-	  while (LedOnDelay > 0)
-	  {}*/
-
-	  HAL_Delay(500);
+	    HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_2);
+	  }
 
   }
   /* USER CODE END 3 */
@@ -277,12 +280,12 @@ static void MX_LCD_Init(void)
   hlcd.Init.Prescaler = LCD_PRESCALER_1;
   hlcd.Init.Divider = LCD_DIVIDER_16;
   hlcd.Init.Duty = LCD_DUTY_1_4;
-  hlcd.Init.Bias = LCD_BIAS_1_4;
+  hlcd.Init.Bias = LCD_BIAS_1_3;
   hlcd.Init.VoltageSource = LCD_VOLTAGESOURCE_INTERNAL;
   hlcd.Init.Contrast = LCD_CONTRASTLEVEL_0;
   hlcd.Init.DeadTime = LCD_DEADTIME_0;
   hlcd.Init.PulseOnDuration = LCD_PULSEONDURATION_0;
-  hlcd.Init.MuxSegment = LCD_MUXSEGMENT_DISABLE;
+  hlcd.Init.MuxSegment = LCD_MUXSEGMENT_ENABLE;
   hlcd.Init.BlinkMode = LCD_BLINKMODE_OFF;
   hlcd.Init.BlinkFrequency = LCD_BLINKFREQUENCY_DIV8;
   if (HAL_LCD_Init(&hlcd) != HAL_OK)
@@ -397,11 +400,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : IDD_CNT_EN_Pin */
+  /*
   GPIO_InitStruct.Pin = IDD_CNT_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(IDD_CNT_EN_GPIO_Port, &GPIO_InitStruct);
+  */
 
   /*Configure GPIO pin : PA0_Pin */
   GPIO_InitStruct.Pin = PA0_Pin;

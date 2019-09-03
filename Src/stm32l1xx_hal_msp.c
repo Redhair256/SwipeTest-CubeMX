@@ -59,6 +59,10 @@
 
 /* USER CODE END 0 */
                         
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+                    /**
+  * Initializes the Global MSP.
+  */
 void HAL_MspInit(void)
 {
   /* USER CODE BEGIN MspInit 0 */
@@ -148,7 +152,6 @@ void HAL_ADC_MspDeInit(ADC_HandleTypeDef* hadc)
 void HAL_LCD_MspInit(LCD_HandleTypeDef* hlcd)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   if(hlcd->Instance==LCD)
   {
   /* USER CODE BEGIN LCD_MspInit 0 */
