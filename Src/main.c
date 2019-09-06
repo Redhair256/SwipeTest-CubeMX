@@ -127,7 +127,17 @@ int main(void)
   MX_TS_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+
   systickInit(1000);   			// systick frequency 1kHz
+
+  LCD->RAM[0]= 0x10000000;      /*0x10000000 = 1 0000 0000 0000 0000 0000 0000 0000 */
+  LCD->RAM[1] = 0x0; 			/*0x0= 00 */
+  LCD->RAM[2] = 0x2; 			/*0x2= 10 */
+  LCD->SR |= 0x4;				//Translate
+
+  while(LCD->SR & LCD_SR_UDR);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -271,10 +281,17 @@ static void MX_LCD_Init(void)
 
   /* USER CODE BEGIN LCD_Init 0 */
 
+  LCD->CR |= LCD_CR_MUX_SEG;
+
+  LCD->FCR &= ~0x3C00000;		// CLear Reg
+  LCD->FCR &= ~0x3C0000;
+
+  LCD->FCR |= 0x1040000;		//ck_ps = LCDCLK/16
+
   /* USER CODE END LCD_Init 0 */
 
   /* USER CODE BEGIN LCD_Init 1 */
-
+  LCD->CR |= 0x1;				// LCD ON
   /* USER CODE END LCD_Init 1 */
   hlcd.Instance = LCD;
   hlcd.Init.Prescaler = LCD_PRESCALER_1;
@@ -282,7 +299,7 @@ static void MX_LCD_Init(void)
   hlcd.Init.Duty = LCD_DUTY_1_4;
   hlcd.Init.Bias = LCD_BIAS_1_3;
   hlcd.Init.VoltageSource = LCD_VOLTAGESOURCE_INTERNAL;
-  hlcd.Init.Contrast = LCD_CONTRASTLEVEL_0;
+  hlcd.Init.Contrast = LCD_CONTRASTLEVEL_3;
   hlcd.Init.DeadTime = LCD_DEADTIME_0;
   hlcd.Init.PulseOnDuration = LCD_PULSEONDURATION_0;
   hlcd.Init.MuxSegment = LCD_MUXSEGMENT_ENABLE;
@@ -293,7 +310,8 @@ static void MX_LCD_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN LCD_Init 2 */
-
+  while(!(LCD->SR&LCD_SR_RDY));
+  while(!(LCD->SR&LCD_SR_ENS));
   /* USER CODE END LCD_Init 2 */
 
 }
@@ -393,6 +411,45 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /* Configure Ports LCD Output*/
+
+    RCC->AHBENR |= (0x7);  //AHBENR |=(RCC_AHBENR_GPIOAEN|RCC_AHBENR_GPIOBEN|RCC_AHBENR_GPIOCEN);
+
+   /*  Configure Port B LCD Output pins as alternate function */
+    GPIO_InitStruct.Pin = ( GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(PB0_GPIO_Port, &GPIO_InitStruct);//GPIO_Pin_3 | GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10 | GPIO_Pin_11 | GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15;
+
+
+    /* Configure Port A LCD Output pins as alternate function */
+    GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_15;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(PA0_GPIO_Port, &GPIO_InitStruct);
+
+
+    /* Configure Port C LCD Output pins as alternate function */
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(PA0_GPIO_Port, &GPIO_InitStruct);
+
+
+    RCC->APB1ENR |= 0x10000200;  	//APB1ENR |= RCC_APB1ENR_PWREN|RCC_APB1ENR_LCDEN;
+    PWR->CR |= 0x100;				//CR |= PWR_CR_DBP;
+
+    RCC->CSR |= 0x800000;			//CSR |= RCC_CSR_RTCRST;
+    RCC->CSR &= ~0x800000;
+    RCC->CSR |= 0x100;			//CSR |= RCC_CSR_LSEON;
+
+    while(!(RCC->CSR&RCC_CSR_LSERDY));
+
+    RCC->CSR |= 0x10000;			//CSR |= RCC_CSR_RTCSEL_LSE;
+
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IDD_CNT_EN_GPIO_Port, IDD_CNT_EN_Pin, GPIO_PIN_RESET);
 
@@ -425,40 +482,6 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
-/* Configure Port A LCD Output*/
-
-  RCC->AHBENR |= (0x7);
-  //WRITE_REG(AHBENR_Port, (0x7)); //AHBENR |=(RCC_AHBENR_GPIOAEN|RCC_AHBENR_GPIOBEN|RCC_AHBENR_GPIOCEN);
-
- /*  Configure Port B LCD Output pins as alternate function */
-  GPIO_InitStruct.Pin = ( GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PB0_GPIO_Port, &GPIO_InitStruct);//GPIO_Pin_3 | GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10 | GPIO_Pin_11 | GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15;
-
-
-  /* Configure Port A LCD Output pins as alternate function */
-  GPIO_InitStruct.Pin = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PA0_GPIO_Port, &GPIO_InitStruct);
-  
-
-  /* Configure Port C LCD Output pins as alternate function */
-  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PA0_GPIO_Port, &GPIO_InitStruct);
-
-
-  /* Configure ADC (IDD_MEASURE) pin as Analogue */
-/*  GPIO_InitStruct.GPIO_Pin = IDD_MEASURE  ;
-  GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AN;
-  GPIO_Init( IDD_MEASURE_PORT, &GPIO_InitStruct);
-*/
 }
 
 /* USER CODE BEGIN 4 */
