@@ -57,23 +57,6 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 
-/* Constant table for cap characters 'A' --> 'Z' */
-const uint16_t CapLetterMap[26]=
-    {
-        /* A      B      C      D      E      F      G      H      I  */
-        0xFE00, 0x6714, 0x1D00, 0x4714, 0x9D00, 0x9C00, 0x3F00, 0xFA00, 0x0014,
-        /* J      K      L      M      N      O      P      Q      R  */
-        0x5300, 0x9841, 0x1900, 0x5A48, 0x5A09, 0x5F00, 0xFC00, 0x5F01, 0xFC01,
-        /* S      T      U      V      W      X      Y      Z  */
-        0xAF00, 0x0414, 0x5b00, 0x18C0, 0x5A81, 0x00C9, 0x0058, 0x05C0
-    };
-
-/* Constant table for number '0' --> '9' */
-const uint16_t NumberMap[10]=
-    {
-        /* 0      1      2      3      4      5      6      7      8      9  */
-        0x5F00,0x4200,0xF500,0x6700,0xEa00,0xAF00,0xBF00,0x04600,0xFF00,0xEF00
-    };
 
 /* USER CODE END PV */
 
@@ -117,7 +100,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  systickInit(1000);   			// systick frequency 1kHz
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -128,15 +111,19 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
-  systickInit(1000);   			// systick frequency 1kHz
 
-  LCD->RAM[0]= 0x10000000;      /*0x10000000 = 1 0000 0000 0000 0000 0000 0000 0000 */
-  LCD->RAM[1] = 0x0; 			/*0x0= 00 */
-  LCD->RAM[2] = 0x2; 			/*0x2= 10 */
-  LCD->SR |= 0x4;				//Translate
+ /* LCD->RAM[0]= 0x10000000;  */    /*0x10000000 = 1 0000 0000 0000 0000 0000 0000 0000 */
+/*  LCD->RAM[1] = 0x0; 		*/	/*0x0= 00 */
+/*  LCD->RAM[2] = 0x2; 		*/	/*0x2= 10 */
 
-  while(LCD->SR & LCD_SR_UDR);
+/*  while(LCD->SR & LCD_SR_UDR);*/
 
+/*  LCD->SR |= 0x4;			*/	//Translate
+
+  HAL_LCD_Clear(&hlcd);
+  HAL_LCD_Write(&hlcd, 0, 0, 0x11000000);
+  HAL_LCD_Write(&hlcd, 2, 0, 0x2);
+  HAL_LCD_UpdateDisplayRequest(&hlcd);
 
   /* USER CODE END 2 */
 
@@ -150,7 +137,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
 
 	  if(UserButton)
 	  {
@@ -281,17 +267,21 @@ static void MX_LCD_Init(void)
 
   /* USER CODE BEGIN LCD_Init 0 */
 
-  LCD->CR |= LCD_CR_MUX_SEG;
+  RCC->APB1ENR |= RCC_APB1ENR_PWREN|RCC_APB1ENR_LCDEN;
+  RCC->CSR |= RCC_CSR_LSION;
+  while (! (RCC->CSR & RCC_CSR_LSIRDY)) ;
 
-  LCD->FCR &= ~0x3C00000;		// CLear Reg
-  LCD->FCR &= ~0x3C0000;
+  RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+  PWR->CR  |=  PWR_CR_DBP;       // disable backup write protection !!!
 
-  LCD->FCR |= 0x1040000;		//ck_ps = LCDCLK/16
+  RCC->CSR |=  RCC_CSR_RTCSEL_1; // LSI select
+  RCC->CSR |=  RCC_CSR_RTCEN;    // RTC en   (LCD clocks from RTC mux)
+  PWR->CR  &= ~PWR_CR_DBP;       // enable backup write protection
 
   /* USER CODE END LCD_Init 0 */
 
   /* USER CODE BEGIN LCD_Init 1 */
-  LCD->CR |= 0x1;				// LCD ON
+  LCD->CR &= ~0x60; 			// Clear CR
   /* USER CODE END LCD_Init 1 */
   hlcd.Instance = LCD;
   hlcd.Init.Prescaler = LCD_PRESCALER_1;
@@ -300,7 +290,7 @@ static void MX_LCD_Init(void)
   hlcd.Init.Bias = LCD_BIAS_1_3;
   hlcd.Init.VoltageSource = LCD_VOLTAGESOURCE_INTERNAL;
   hlcd.Init.Contrast = LCD_CONTRASTLEVEL_3;
-  hlcd.Init.DeadTime = LCD_DEADTIME_0;
+  hlcd.Init.DeadTime = LCD_DEADTIME_1;
   hlcd.Init.PulseOnDuration = LCD_PULSEONDURATION_0;
   hlcd.Init.MuxSegment = LCD_MUXSEGMENT_ENABLE;
   hlcd.Init.BlinkMode = LCD_BLINKMODE_OFF;
@@ -310,7 +300,10 @@ static void MX_LCD_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN LCD_Init 2 */
+  LCD->CR |= 0x1;				// LCD ON
+
   while(!(LCD->SR&LCD_SR_RDY));
+
   while(!(LCD->SR&LCD_SR_ENS));
   /* USER CODE END LCD_Init 2 */
 
@@ -413,7 +406,7 @@ static void MX_GPIO_Init(void)
 
   /* Configure Ports LCD Output*/
 
-    RCC->AHBENR |= (0x7);  //AHBENR |=(RCC_AHBENR_GPIOAEN|RCC_AHBENR_GPIOBEN|RCC_AHBENR_GPIOCEN);
+    RCC->AHBENR |=(RCC_AHBENR_GPIOAEN|RCC_AHBENR_GPIOBEN|RCC_AHBENR_GPIOCEN);
 
    /*  Configure Port B LCD Output pins as alternate function */
     GPIO_InitStruct.Pin = ( GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
@@ -421,6 +414,8 @@ static void MX_GPIO_Init(void)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(PB0_GPIO_Port, &GPIO_InitStruct);//GPIO_Pin_3 | GPIO_Pin_4 | GPIO_Pin_5 | GPIO_Pin_8 | GPIO_Pin_9 | GPIO_Pin_10 | GPIO_Pin_11 | GPIO_Pin_12 | GPIO_Pin_13 | GPIO_Pin_14 | GPIO_Pin_15;
+    GPIOB->AFR[0] = 0x00BBB000;		/* 0xBBB00000 = 0000 0000 1011 1011 1011 0000 0000 0000*/
+    GPIOB->AFR[1] = 0xBBBBBBBB; 	/* 0xB0000BBB = 1011 1011 1011 1011 1011 1011 1011 1011*/
 
 
     /* Configure Port A LCD Output pins as alternate function */
@@ -429,7 +424,8 @@ static void MX_GPIO_Init(void)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(PA0_GPIO_Port, &GPIO_InitStruct);
-
+    GPIOA->AFR[0] = 0xBBB0;				/* 0xBBB0 = 1011 1011 1011 0000*/
+    GPIOA->AFR[1] = 0xB0000BBB; 	/* 0xB0000BBB = 1011 0000 0000 0000 0000 1011 1011 1011*/
 
     /* Configure Port C LCD Output pins as alternate function */
     GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11;
@@ -437,18 +433,8 @@ static void MX_GPIO_Init(void)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(PA0_GPIO_Port, &GPIO_InitStruct);
-
-
-    RCC->APB1ENR |= 0x10000200;  	//APB1ENR |= RCC_APB1ENR_PWREN|RCC_APB1ENR_LCDEN;
-    PWR->CR |= 0x100;				//CR |= PWR_CR_DBP;
-
-    RCC->CSR |= 0x800000;			//CSR |= RCC_CSR_RTCRST;
-    RCC->CSR &= ~0x800000;
-    RCC->CSR |= 0x100;			//CSR |= RCC_CSR_LSEON;
-
-    while(!(RCC->CSR&RCC_CSR_LSERDY));
-
-    RCC->CSR |= 0x10000;			//CSR |= RCC_CSR_RTCSEL_LSE;
+    GPIOC->AFR[0] = 0xBB00BBBB;		/* 0xBBB00000 = 1011 1011 0000 0000 1011 1011 1011 1011*/
+    GPIOC->AFR[1] = 0x0000BBBB; 	/* 0xB0000BBB = 0000 0000 0000 0000 1011 1011 1011 1011*/
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(IDD_CNT_EN_GPIO_Port, IDD_CNT_EN_Pin, GPIO_PIN_RESET);
@@ -494,7 +480,6 @@ void systickInit (uint16_t frequency)
 
     SysTick_Config (ticks);
 }
-
 
 
 /* USER CODE END 4 */
