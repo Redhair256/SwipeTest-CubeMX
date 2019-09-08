@@ -39,8 +39,11 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 extern bool UserButton;               /* Set by interrupt handler to indicate that user button is pressed */
+bool process_sensor = FALSE;
 int BtDelay = Button_Delay;
 int LedOnDelay = LedON_Delay;
+uint8_t message[6] = "HELLO ";
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -70,6 +73,7 @@ static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 static uint16_t LCD_Conv_Char_Seg  (uint8_t symbol, uint8_t point);
 void LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position);
+void LCD_GLASS_WriteMessage(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -112,38 +116,101 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
-//  LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position)
-  LCD_GLASS_WriteChar('H', 0, 1);
+/*  LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position)*/
+/*  LCD_GLASS_WriteChar('H', 0, 1);
   LCD_GLASS_WriteChar('E', 0, 2);
   LCD_GLASS_WriteChar('L', 0, 3);
   LCD_GLASS_WriteChar('L', 0, 4);
   LCD_GLASS_WriteChar('O', 0, 5);
-  LCD_GLASS_WriteChar(' ', 0, 6);
+  LCD_GLASS_WriteChar(' ', 1, 6);
+  */
+  LCD_GLASS_WriteMessage();
+  HAL_Delay(500);
  /* USER CODE END 2 */
-
+  state_machine= STATE_1;
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_TIM_Base_Start(&htim4);				//PWM generator start
 //  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
-
+  message[0] = ' ';
+  message[1] = '2';
+  message[2] = '0';
+  message[3] = '0';
+  message[4] = 'M';
+  message[5] = 'S';
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-	  if(UserButton)
-	  {
-	     HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
-	     LedOnDelay = LedON_Delay;
-	     UserButton = FALSE;
-	  }
-	  else HAL_Delay(500);
-	  if(LedOnDelay == 0)
-	  {
+	switch (state_machine)
+	{
 
-	    HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_2);
-	  }
+	   case STATE_1:
+	     swipe_delay_value=220;
+	     if (process_sensor==0)
+	     {
+	    	  message[0] = ' ';
+	    	  message[1] = '2';
+	    	 LCD_GLASS_WriteMessage();
+	     }
+	   break;
+
+	   case STATE_2:
+	     swipe_delay_value=550;
+	     if (process_sensor==0)
+	     {
+	    	 message[0] = ' ';
+	    	 message[1] = '5';
+   	    	 LCD_GLASS_WriteMessage();
+	     }
+	   break;
+
+	   case STATE_3:
+	     swipe_delay_value=1100;
+	     if (process_sensor==0)
+		 {
+	    	  message[0] = '1';
+	    	  message[1] = '0';
+	    	 LCD_GLASS_WriteMessage();
+	     }
+	   break;
+
+	   /* for safe: normaly never reaches*/
+	   default:
+		 message[0] = 'E';
+		 message[1] = 'R';
+		 message[2] = 'R';
+		 message[3] = 'O';
+		 message[4] = 'R';
+		 message[5] = ' ';
+		 LCD_GLASS_WriteMessage();
+	   break;
+	}
+
+
+
+
+	if(UserButton)
+	{
+	   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
+	   LedOnDelay = LedON_Delay;
+
+	   state_machine++;
+	   if (state_machine==MAX_STATE)
+	   {
+		   state_machine=STATE_1;
+	   }
+
+	   UserButton = FALSE;
+	}
+	else HAL_Delay(500);
+	if(LedOnDelay == 0)
+	{
+
+	  HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_2);
+	}
 
   }
   /* USER CODE END 3 */
@@ -611,6 +678,14 @@ void LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position)
     HAL_LCD_UpdateDisplayRequest(&hlcd);
 }
 
+void LCD_GLASS_WriteMessage(void)
+{
+	uint8_t i;
+	for(i=0;i<6;i++)
+	{
+		LCD_GLASS_WriteChar(message[i], 0, i+1);
+	}
+}
 
 void systickInit (uint16_t frequency)
 {

@@ -33,6 +33,8 @@ extern "C" {
 //#include "Glass_LCD.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+uint8_t state_machine;                /* Machine status used by main() wich indicats the active function, set by user button in interrupt handler */
+uint16_t swipe_delay_value;
 
 /* USER CODE END Includes */
 
@@ -178,6 +180,13 @@ void UpdateDisplay(void);
 #define GPIO_Pin_All               ((uint16_t)0xFFFF)  /*!< All pins selected */
 
 /* USER CODE END Private defines */
+
+#define STATE_1 	0
+#define STATE_2 	1
+#define STATE_3 	2
+
+
+#define MAX_STATE 	3
 
 #ifdef __cplusplus
 }
