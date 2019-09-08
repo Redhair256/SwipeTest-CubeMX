@@ -148,7 +148,7 @@ int main(void)
 	{
 
 	   case STATE_1:
-	     swipe_delay_value=220;
+	     swipe_delay_value=200;
 	     if (process_sensor==0)
 	     {
 	    	  message[0] = ' ';
@@ -158,7 +158,7 @@ int main(void)
 	   break;
 
 	   case STATE_2:
-	     swipe_delay_value=550;
+	     swipe_delay_value=500;
 	     if (process_sensor==0)
 	     {
 	    	 message[0] = ' ';
@@ -168,7 +168,7 @@ int main(void)
 	   break;
 
 	   case STATE_3:
-	     swipe_delay_value=1100;
+	     swipe_delay_value=1000;
 	     if (process_sensor==0)
 		 {
 	    	  message[0] = '1';
@@ -190,12 +190,10 @@ int main(void)
 	}
 
 
-
-
 	if(UserButton)
 	{
 	   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
-	   LedOnDelay = LedON_Delay;
+	   LedOnDelay = swipe_delay_value;
 
 	   state_machine++;
 	   if (state_machine==MAX_STATE)
@@ -211,6 +209,8 @@ int main(void)
 
 	  HAL_TIM_PWM_Stop(&htim4, TIM_CHANNEL_2);
 	}
+
+
 
   }
   /* USER CODE END 3 */
@@ -438,7 +438,7 @@ static void MX_TS_Init(void)
 {
 
   /* USER CODE BEGIN TS_Init 0 */
-
+  /* Init Touch Sensing configuration */
   /* USER CODE END TS_Init 0 */
 
   /* USER CODE BEGIN TS_Init 1 */
