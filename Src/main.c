@@ -68,7 +68,8 @@ static void MX_LCD_Init(void);
 static void MX_TS_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
-
+static uint16_t LCD_Conv_Char_Seg  (uint8_t symbol, uint8_t point);
+void LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -111,21 +112,14 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
-
- /* LCD->RAM[0]= 0x10000000;  */    /*0x10000000 = 1 0000 0000 0000 0000 0000 0000 0000 */
-/*  LCD->RAM[1] = 0x0; 		*/	/*0x0= 00 */
-/*  LCD->RAM[2] = 0x2; 		*/	/*0x2= 10 */
-
-/*  while(LCD->SR & LCD_SR_UDR);*/
-
-/*  LCD->SR |= 0x4;			*/	//Translate
-
-  HAL_LCD_Clear(&hlcd);
-  HAL_LCD_Write(&hlcd, 0, 0, 0x11000000);
-  HAL_LCD_Write(&hlcd, 2, 0, 0x2);
-  HAL_LCD_UpdateDisplayRequest(&hlcd);
-
-  /* USER CODE END 2 */
+//  LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position)
+  LCD_GLASS_WriteChar('H', 0, 1);
+  LCD_GLASS_WriteChar('E', 0, 2);
+  LCD_GLASS_WriteChar('L', 0, 3);
+  LCD_GLASS_WriteChar('L', 0, 4);
+  LCD_GLASS_WriteChar('O', 0, 5);
+  LCD_GLASS_WriteChar(' ', 0, 6);
+ /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -471,6 +465,152 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+static uint16_t LCD_Conv_Char_Seg  (uint8_t symbol, uint8_t point)
+{
+	uint16_t from_ascii[0x60] = {
+	  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+	  /*															*/
+	  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+	  /*															*/
+	  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+	  /*															*/
+	  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+	  /*         !       "       #       $      %        &       ' 	*/
+	  0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+	  /* (       )       *       +       ,       -       .       / 	*/
+	  0x0000, 0x0000, 0xA0DD, 0x0000, 0x0000, 0xA000, 0x0000, 0x00C0,
+	  /* 0       1       2       3       4       5       6       7 	*/
+	  0x5F00, 0x4200, 0xF500, 0x6700, 0xEA00, 0xAF00, 0xBF00, 0x4600,
+	  /* 8       9       :       ;       <       =       >       ? 	*/
+	  0xFF00, 0xEF00, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+	  /* @       A       B       C       D       E       F       G 	*/
+	  0x0000, 0xFE00, 0x6714, 0x1D00, 0x4714, 0x9D00, 0x9C00, 0x3F00,
+	  /* H       I       J       K       L       M       N       O 	*/
+	  0xFA00, 0x0014, 0x5300, 0x9841, 0x1900, 0x5A48, 0x5A09, 0x5F00,
+	  /* P       Q       R       S       T       U       V       W 	*/
+	  0xFC00, 0x5F01, 0xFC01, 0xAF00, 0x0414, 0x5B00, 0x18C0, 0x5A81,
+	  /* X       Y       Z       [       \       ]       ^       _ 	*/
+	  0x00C9, 0x0058, 0x05C0, 0x1D00, 0x0000, 0x4700, 0x0000, 0x0000
+	};
+
+	if (symbol > 0x60) return 0x0000; // masks not defined. Nothing to display
+
+    /* Set the digital point can be displayed if the point is on */
+    if(point != 0)
+    {
+    	return from_ascii[symbol] | 0x0002;
+    }
+	return from_ascii[symbol];
+}
+
+
+void LCD_GLASS_WriteChar(uint8_t ch, uint8_t point, uint8_t position)
+{
+	uint16_t digit[0x04];     /* Digit frame buffer */
+    uint32_t char_mask;
+    uint16_t LCD_char;
+    uint8_t i,j;
+    /* To convert displayed character in segment in array digit */
+    LCD_char = LCD_Conv_Char_Seg(ch, point);
+    for(i = 0x0C, j = 0x00 ; j < 0x04; i -= 0x04, j++)
+    {
+        digit[j] = ((LCD_char >> i) & 0x0F); //To isolate the less signifiant bit
+    }
+
+    /* TO wait LCD Ready */
+ /*   while(LCD_SRbits.UDR == true);*/
+    while(!(LCD->SR&LCD_SR_RDY));
+
+    switch (position)
+    {
+        /* Position 1 on LCD (Digit1)*/
+        case 1:
+        {
+        	char_mask = 0xCFFFFFFC;
+
+        	HAL_LCD_Write(&hlcd, 0, char_mask, ((((unsigned long)digit[0x00]) & 0x0C) << 0x1A) | (((unsigned long)digit[0x00]) & 0x03)); // 1G 1B 1M 1E
+        	HAL_LCD_Write(&hlcd, 2, char_mask, ((((unsigned long)digit[0x01]) & 0x0C) << 0x1A) | (((unsigned long)digit[0x01]) & 0x03)); // 1F 1A 1C 1D
+        	HAL_LCD_Write(&hlcd, 4, char_mask, ((((unsigned long)digit[0x02]) & 0x0C) << 0x1A) | (((unsigned long)digit[0x02]) & 0x03)); // 1Q 1K 1Col 1P
+        	HAL_LCD_Write(&hlcd, 6, char_mask, ((((unsigned long)digit[0x03]) & 0x0C) << 0x1A) | (((unsigned long)digit[0x03]) & 0x03)); // 1H 1J 1DP 1N
+
+            break;
+         }
+
+        /* Position 2 on LCD (Digit2)*/
+        case 2:
+        {
+        	char_mask = 0xF3FFFF03;
+
+        	HAL_LCD_Write(&hlcd, 0, char_mask, ((((unsigned long)digit[0x00]) & 0x0C) << 0x18) | ((((unsigned long)digit[0x00]) & 0x02) << 0x06) | ((((unsigned long)digit[0x00]) & 0x01) << 0x02)); // 2G 2B 2M 2E
+        	HAL_LCD_Write(&hlcd, 2, char_mask, ((((unsigned long)digit[0x01]) & 0x0C) << 0x18) | ((((unsigned long)digit[0x01]) & 0x02) << 0x06) | ((((unsigned long)digit[0x01]) & 0x01) << 0x02)); // 2F 2A 2C 2D
+        	HAL_LCD_Write(&hlcd, 4, char_mask, ((((unsigned long)digit[0x02]) & 0x0C) << 0x18) | ((((unsigned long)digit[0x02]) & 0x02) << 0x06) | ((((unsigned long)digit[0x02]) & 0x01) << 0x02)); // 2Q 2K 2Col 2P
+        	HAL_LCD_Write(&hlcd, 6, char_mask, ((((unsigned long)digit[0x03]) & 0x0C) << 0x18) | ((((unsigned long)digit[0x03]) & 0x02) << 0x06) | ((((unsigned long)digit[0x03]) & 0x01) << 0x02)); // 2H 2J 2DP 2N
+
+            break;
+         }
+
+        /* Position 3 on LCD (Digit3)*/
+        case 3:
+        {
+        	char_mask = 0xFCFFFCFF;
+
+        	HAL_LCD_Write(&hlcd, 0, char_mask, ((((unsigned long)digit[0x00]) & 0x0C) << 0x16) | ((((unsigned long)digit[0x00]) & 0x03) << 0x08)); // 3G 3B 3M 3E
+        	HAL_LCD_Write(&hlcd, 2, char_mask, ((((unsigned long)digit[0x01]) & 0x0C) << 0x16) | ((((unsigned long)digit[0x01]) & 0x03) << 0x08)); // 3F 3A 3C 3D
+        	HAL_LCD_Write(&hlcd, 4, char_mask, ((((unsigned long)digit[0x02]) & 0x0C) << 0x16) | ((((unsigned long)digit[0x02]) & 0x03) << 0x08)); // 3Q 3K 3Col 3P
+        	HAL_LCD_Write(&hlcd, 6, char_mask, ((((unsigned long)digit[0x03]) & 0x0C) << 0x16) | ((((unsigned long)digit[0x03]) & 0x03) << 0x08)); // 3H 3J 3DP 3N
+
+            break;
+         }
+
+        /* Position 4 on LCD (Digit4)*/
+        case 4:
+        {
+        	char_mask = 0xFFCFF3FF;
+
+        	HAL_LCD_Write(&hlcd, 0, char_mask, ((((unsigned long)digit[0x00]) & 0x0C) << 0x12) | ((((unsigned long)digit[0x00]) & 0x03) << 0x0A)); // 4G 4B 4M 4E
+        	HAL_LCD_Write(&hlcd, 2, char_mask, ((((unsigned long)digit[0x01]) & 0x0C) << 0x12) | ((((unsigned long)digit[0x01]) & 0x03) << 0x0A)); // 4F 4A 4C 4D
+        	HAL_LCD_Write(&hlcd, 4, char_mask, ((((unsigned long)digit[0x02]) & 0x0C) << 0x12) | ((((unsigned long)digit[0x02]) & 0x03) << 0x0A)); // 4Q 4K 4Col 4P
+        	HAL_LCD_Write(&hlcd, 6, char_mask, ((((unsigned long)digit[0x03]) & 0x0C) << 0x12) | ((((unsigned long)digit[0x03]) & 0x03) << 0x0A)); // 4H 4J 4DP 4N
+
+            break;
+         }
+
+        /* Position 5 on LCD (Digit5)*/
+        case 5:
+        {
+        	char_mask = 0xFFF3CFFF;
+
+        	HAL_LCD_Write(&hlcd, 0, char_mask, ((((unsigned long)digit[0x00]) & 0x0C) << 0x10) | ((((unsigned long)digit[0x00]) & 0x03) << 0x0C)); // 5G 5B 5M 5E
+        	HAL_LCD_Write(&hlcd, 2, char_mask, ((((unsigned long)digit[0x01]) & 0x0C) << 0x10) | ((((unsigned long)digit[0x01]) & 0x03) << 0x0C)); // 5F 5A 5C 5D
+        	HAL_LCD_Write(&hlcd, 4, char_mask, ((((unsigned long)digit[0x02]) & 0x0C) << 0x10) | ((((unsigned long)digit[0x02]) & 0x01) << 0x0C)); // 5Q 5K   5P
+        	HAL_LCD_Write(&hlcd, 6, char_mask, ((((unsigned long)digit[0x03]) & 0x0C) << 0x10) | ((((unsigned long)digit[0x03]) & 0x01) << 0x0C)); // 5H 5J   5N
+
+            break;
+         }
+
+        /* Position 6 on LCD (Digit6)*/
+        case 6:
+        {
+        	char_mask = 0xFFFC3FFF;
+
+        	HAL_LCD_Write(&hlcd, 0, char_mask, ((((unsigned long)digit[0x00]) & 0x04) << 0x0F) | ((((unsigned long)digit[0x00]) & 0x08) << 0x0D) | ((((unsigned long)digit[0x00]) & 0x03) << 0x0E)) ; // 6B 6G 6M 6E
+        	HAL_LCD_Write(&hlcd, 2, char_mask, ((((unsigned long)digit[0x01]) & 0x04) << 0x0F) | ((((unsigned long)digit[0x01]) & 0x08) << 0x0D) | ((((unsigned long)digit[0x01]) & 0x03) << 0x0E)) ; // 6A 6F 6C 6D
+        	HAL_LCD_Write(&hlcd, 4, char_mask, ((((unsigned long)digit[0x02]) & 0x04) << 0x0F) | ((((unsigned long)digit[0x02]) & 0x08) << 0x0D) | ((((unsigned long)digit[0x02]) & 0x01) << 0x0E)) ; // 6K 6Q    6P
+        	HAL_LCD_Write(&hlcd, 6, char_mask, ((((unsigned long)digit[0x03]) & 0x04) << 0x0F) | ((((unsigned long)digit[0x03]) & 0x08) << 0x0D) | ((((unsigned long)digit[0x03]) & 0x01) << 0x0E)) ; // 6J 6H   6N
+
+            break;
+         }
+
+         default:
+         {
+            break;
+         }
+    }
+
+    HAL_LCD_UpdateDisplayRequest(&hlcd);
+}
+
 
 void systickInit (uint16_t frequency)
 {
